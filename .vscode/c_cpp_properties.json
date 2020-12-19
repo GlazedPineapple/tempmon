@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "/home/eokovacs/.arduino15/packages/esp8266/tools/**",
+                "/home/eokovacs/Arduino/libraries/**",
+                "/home/eokovacs/.arduino15/packages/esp8266/hardware/esp8266/2.7.4/**",
+                "${workspaceFolder}/**",
+                "/usr/share/arduino-1.8.13/libraries/**"
+            ],
+            "defines": [
+                "USBCON"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "gcc-x64",
+            "forcedInclude": []
+        }
+    ],
+    "version": 4
+}
