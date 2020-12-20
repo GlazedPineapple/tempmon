@@ -4,6 +4,8 @@
 
 #define A0 17
 
+#define ON_THRESHOLD .350
+
 extern const char *webhook_url;
 
 HTTPClient http;
@@ -59,9 +61,19 @@ void setup() {
     WiFi.printDiag(Serial);
 }
 
+unsigned long lastSent = 0;
+unsigned long delayMillis = 10 * 60 * 1000; // 10 minutes
+bool firstRun = true;
+
 void loop() {
-    double thermocoupleVoltage = ((double) analogRead(A0) / 1024.0) * 3.3;
+    int raw_adc = analogRead(A0);
+    double thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3; // TODO: CALIBRATE ADC!!
     Serial.println(thermocoupleVoltage);
 
-    // bool success = sendMessage({.thermocoupleVoltage = 10});
+    unsigned long currentMillis = millis();
+    if (thermocoupleVoltage < ON_THRESHOLD && (currentMillis - lastSent > delayMillis || firstRun)) {
+        bool success = sendMessage({.thermocoupleVoltage = thermocoupleVoltage});
+        lastSent = currentMillis;
+        firstRun = false;
+    }
 }
