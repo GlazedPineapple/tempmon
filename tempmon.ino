@@ -1,10 +1,13 @@
+#include "secrets.h"
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
 
 #define ON_THRESHOLD .08
 
-extern const char *webhook_url;
+const PROGMEM char webhook_url[] = WEBHOOK_URL;
+const PROGMEM char ssid[] = STASSID;
+const PROGMEM char password[] = STAPSK;
 
 HTTPClient http;
 WiFiClientSecure client;
@@ -15,7 +18,15 @@ struct Message {
 };
 
 String Message::toJSON() {
-    return String("{\"content\": \"<@272727593881567242> **Pilot light fault**```yml\\nThreshold Voltage: ") + String(ON_THRESHOLD * 1000) + String(" mv\\nThermocouple Voltage: ") + String(this->thermocoupleVoltage * 1000) + String(" mv```\"}");
+    String json;
+
+    json.concat(F("{\"content\": \"<@272727593881567242> **Pilot light fault**```yml\\nThreshold Voltage: "));
+    json.concat(String(ON_THRESHOLD * 1000));
+    json.concat(F(" mv\\nThermocouple Voltage: "));
+    json.concat(String(this->thermocoupleVoltage * 1000));
+    json.concat(F(" mv```\"}"));
+
+    return json;
 }
 
 bool sendMessage(Message message) {
@@ -25,7 +36,7 @@ bool sendMessage(Message message) {
 
     // Connect to webhook
     http.begin(client, webhook_url);
-    http.addHeader("Content-Type", "application/json");
+    http.addHeader(F("Content-Type"), F("application/json"));
     int httpCode = http.POST(message.toJSON());
 
     // Close connection
@@ -51,12 +62,12 @@ void setup() {
     Serial.println();
 
     // Connect to the wifi
-    WiFi.begin("HomeofSkipper", "skipperisthebestdog");
+    WiFi.begin(STASSID, STAPSK);
 
-    Serial.print("Connecting");
+    Serial.print(F("Connecting"));
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        Serial.print(".");
+        Serial.print(F("."));
     }
     Serial.println();
 
@@ -78,7 +89,7 @@ void loop() {
 
     double thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3;
 
-    Serial.println(String(thermocoupleVoltage * 1000) + String(" mv"));
+    Serial.println(String(thermocoupleVoltage * 1000) + F(" mv"));
 
     if (thermocoupleVoltage > ON_THRESHOLD + .100) {
         digitalWrite(D5, HIGH); // Green
@@ -108,14 +119,14 @@ void loop() {
             triggerStart = currentMillis;
         else if (currentMillis - triggerStart > triggerDelay) {
             if (lastSent == NULL || currentMillis - lastSent > sendLimit) {
-                Serial.print("Sending message...");
+                Serial.print(F("Sending message..."));
 
                 bool success = sendMessage({.thermocoupleVoltage = thermocoupleVoltage});
-                
+
                 if (success) {
-                    Serial.println("Success");
+                    Serial.println(F("Success"));
                 } else {
-                    Serial.println("Failure");
+                    Serial.println(F("Failure"));
                 }
 
                 lastSent = currentMillis;
