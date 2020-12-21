@@ -2,7 +2,11 @@
 #define WEBHOOK_URL "WEBHOOK_URL HERE"
 #endif
 
-#ifndef STASSID
-#define STASSID "WIFI SSID"
-#define STAPSK "WIFI PASSKEY"
+#ifndef STA_SSID
+#define STA_SSID "WIFI SSID"
+#define STA_PSK "WIFI PASSKEY"
+#endif
+
+#ifndef OTA_PASS
+#define OTA_PASS "OTA UPDATE PASSWORD"
 #endif
