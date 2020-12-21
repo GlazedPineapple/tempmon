@@ -1,4 +1,5 @@
 #include "secrets.hpp"
+#include <ArduinoOTA.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
@@ -6,8 +7,9 @@
 #define ON_THRESHOLD .08
 
 const PROGMEM char webhook_url[] = WEBHOOK_URL;
-const PROGMEM char ssid[] = STASSID;
-const PROGMEM char password[] = STAPSK;
+const PROGMEM char ssid[] = STA_SSID;
+const PROGMEM char password[] = STA_PSK;
+const PROGMEM char ota_pass[] = OTA_PASS;
 
 HTTPClient http;
 WiFiClientSecure client;
@@ -62,12 +64,13 @@ void setup() {
     Serial.println();
 
     // Connect to the wifi
-    WiFi.begin(STASSID, STAPSK);
+    WiFi.begin(ssid, password);
 
     Serial.print(F("Connecting"));
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(F("."));
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+        Serial.println("Connection Failed! Rebooting...");
+        delay(5000);
+        ESP.restart();
     }
     Serial.println();
 
@@ -77,14 +80,55 @@ void setup() {
 
     // Print wifi info
     WiFi.printDiag(Serial);
+
+    // Setup OTA
+    ArduinoOTA.setHostname("tempmon");
+    ArduinoOTA.setPassword(ota_pass);
+
+    ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+        } else { // U_FS
+            type = "filesystem";
+        }
+
+        // NOTE: if updating FS this would be the place to unmount FS using FS.end()
+        Serial.println("Start updating " + type);
+    });
+    ArduinoOTA.onEnd([]() {
+        Serial.println("\nEnd");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) {
+            Serial.println("Auth Failed");
+        } else if (error == OTA_BEGIN_ERROR) {
+            Serial.println("Begin Failed");
+        } else if (error == OTA_CONNECT_ERROR) {
+            Serial.println("Connect Failed");
+        } else if (error == OTA_RECEIVE_ERROR) {
+            Serial.println("Receive Failed");
+        } else if (error == OTA_END_ERROR) {
+            Serial.println("End Failed");
+        }
+    });
+    ArduinoOTA.begin();
+    Serial.println("Ready");
 }
 
 unsigned long triggerStart = NULL;
 unsigned long lastSent = NULL;
-unsigned long sendLimit = 60 * 1000;    // 1 minute
+unsigned long sendLimit = 10 * 60 * 1000;    // 10 minutes
 unsigned long triggerDelay = 10 * 1000; // 10 seconds
 
 void loop() {
+    // Handle possible OTA update
+    ArduinoOTA.handle();
+
     int raw_adc = analogRead(A0);
 
     double thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3;
