@@ -1,4 +1,4 @@
-#include "secrets.h"
+#include "secrets.hpp"
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
