@@ -2,9 +2,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
 
-#define A0 17
-
-#define ON_THRESHOLD .350
+#define ON_THRESHOLD .08
 
 extern const char *webhook_url;
 
@@ -17,7 +15,7 @@ struct Message {
 };
 
 String Message::toJSON() {
-    return String(R"JSON({"content": "<@272727593881567242> **Pilot light fault**```Thermocouple voltage: )JSON") + String(this->thermocoupleVoltage) + String(R"JSON(```"})JSON");
+    return String("{\"content\": \"<@272727593881567242> **Pilot light fault**```yml\\nThreshold Voltage: ") + String(ON_THRESHOLD * 1000) + String(" mv\\nThermocouple Voltage: ") + String(this->thermocoupleVoltage * 1000) + String(" mv```\"}");
 }
 
 bool sendMessage(Message message) {
@@ -38,6 +36,15 @@ bool sendMessage(Message message) {
 
 void setup() {
     pinMode(A0, INPUT_PULLDOWN_16);
+    pinMode(D5, OUTPUT);
+    pinMode(D6, OUTPUT);
+    pinMode(D7, OUTPUT);
+    pinMode(D8, OUTPUT);
+
+    digitalWrite(D5, LOW);
+    digitalWrite(D6, LOW);
+    digitalWrite(D7, LOW);
+    digitalWrite(D8, LOW);
 
     // Start the serial connection
     Serial.begin(115200);
@@ -54,26 +61,67 @@ void setup() {
     Serial.println();
 
     // Wait for the serial port to be avaliable
-    while (!Serial.available()) {
-    }
+    // while (!Serial.available()) {
+    // }
 
     // Print wifi info
     WiFi.printDiag(Serial);
 }
 
-unsigned long lastSent = 0;
-unsigned long delayMillis = 10 * 60 * 1000; // 10 minutes
-bool firstRun = true;
+unsigned long triggerStart = NULL;
+unsigned long lastSent = NULL;
+unsigned long sendLimit = 60 * 1000;    // 1 minute
+unsigned long triggerDelay = 10 * 1000; // 10 seconds
 
 void loop() {
     int raw_adc = analogRead(A0);
-    double thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3; // TODO: CALIBRATE ADC!!
-    Serial.println(thermocoupleVoltage);
+
+    double thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3;
+
+    Serial.println(String(thermocoupleVoltage * 1000) + String(" mv"));
+
+    if (thermocoupleVoltage > ON_THRESHOLD + .100) {
+        digitalWrite(D5, HIGH); // Green
+        digitalWrite(D6, LOW);
+        digitalWrite(D7, LOW);
+        digitalWrite(D8, LOW);
+    } else if (thermocoupleVoltage > ON_THRESHOLD + .050) {
+        digitalWrite(D5, LOW);
+        digitalWrite(D6, HIGH); // Yellow
+        digitalWrite(D7, LOW);
+        digitalWrite(D8, LOW);
+    } else if (thermocoupleVoltage > ON_THRESHOLD) {
+        digitalWrite(D5, LOW);
+        digitalWrite(D6, LOW);
+        digitalWrite(D7, HIGH); // Yellow
+        digitalWrite(D8, LOW);
+    } else {
+        digitalWrite(D5, LOW);
+        digitalWrite(D6, LOW);
+        digitalWrite(D7, LOW);
+        digitalWrite(D8, HIGH); // Red
+    }
 
     unsigned long currentMillis = millis();
-    if (thermocoupleVoltage < ON_THRESHOLD && (currentMillis - lastSent > delayMillis || firstRun)) {
-        bool success = sendMessage({.thermocoupleVoltage = thermocoupleVoltage});
-        lastSent = currentMillis;
-        firstRun = false;
+    if (thermocoupleVoltage < ON_THRESHOLD) {
+        if (triggerStart == NULL)
+            triggerStart = currentMillis;
+        else if (currentMillis - triggerStart > triggerDelay) {
+            if (lastSent == NULL || currentMillis - lastSent > sendLimit) {
+                Serial.print("Sending message...");
+
+                bool success = sendMessage({.thermocoupleVoltage = thermocoupleVoltage});
+                
+                if (success) {
+                    Serial.println("Success");
+                } else {
+                    Serial.println("Failure");
+                }
+
+                lastSent = currentMillis;
+            }
+        }
+    } else {
+        triggerStart = NULL;
     }
 }

@@ -7,7 +7,11 @@
                 "/home/eokovacs/Arduino/libraries/**",
                 "/home/eokovacs/.arduino15/packages/esp8266/hardware/esp8266/2.7.4/**",
                 "${workspaceFolder}/**",
-                "/usr/share/arduino-1.8.13/libraries/**"
+                "/usr/share/arduino-1.8.13/libraries/**",
+                "/Users/eokovacs/Library/Arduino15/packages/esp8266/hardware/esp8266/2.7.4/**",
+                "/Applications/Arduino.app/Contents/Java/libraries/**",
+                "/Users/eokovacs/Documents/Arduino/libraries/**",
+                "/Users/eokovacs/Library/Arduino15/packages/esp8266/tools/**"
             ],
             "defines": [
                 "USBCON"
@@ -17,6 +21,19 @@
             "cppStandard": "gnu++14",
             "intelliSenseMode": "gcc-x64",
             "forcedInclude": []
+        },
+        {
+            "name": "Mac",
+            "includePath": [
+                "/Users/eokovacs/Library/Arduino15/packages/esp8266/tools/**",
+                "/Users/eokovacs/Documents/Arduino/libraries/**",
+                "/Applications/Arduino.app/Contents/Java/libraries/**",
+                "/Users/eokovacs/Library/Arduino15/packages/esp8266/hardware/esp8266/2.7.4/**"
+            ],
+            "forcedInclude": [],
+            "defines": [
+                "USBCON"
+            ]
         }
     ],
     "version": 4
