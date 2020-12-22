@@ -6,10 +6,21 @@
 
 #define ON_THRESHOLD .08
 
-const PROGMEM char webhook_url[] = WEBHOOK_URL;
-const PROGMEM char ssid[] = STA_SSID;
-const PROGMEM char password[] = STA_PSK;
-const PROGMEM char ota_pass[] = OTA_PASS;
+class Secrets {
+  public:
+    static const __FlashStringHelper *webhook_url() {
+        return F(WEBHOOK_URL);
+    }
+    static const __FlashStringHelper *ssid() {
+        return F(STA_SSID);
+    }
+    static const __FlashStringHelper *password() {
+        return F(STA_PSK);
+    }
+    static const char *ota_pass() {
+        return STA_PSK;
+    }
+};
 
 HTTPClient http;
 WiFiClientSecure client;
@@ -34,10 +45,10 @@ String Message::toJSON() {
 bool sendMessage(Message message) {
     // Setup ssl
     client.setInsecure();
-    client.connect(webhook_url, 443);
+    client.connect(Secrets::webhook_url(), 443);
 
     // Connect to webhook
-    http.begin(client, webhook_url);
+    http.begin(client, Secrets::webhook_url());
     http.addHeader(F("Content-Type"), F("application/json"));
     int httpCode = http.POST(message.toJSON());
 
@@ -64,15 +75,15 @@ void setup() {
     Serial.println();
 
     // Connect to the wifi
-    WiFi.begin(ssid, password);
+    WiFi.begin(Secrets::ssid(), Secrets::password());
 
-    Serial.print(F("Connecting"));
+    Serial.print(F("Connecting..."));
     while (WiFi.waitForConnectResult() != WL_CONNECTED) {
         Serial.println("Connection Failed! Rebooting...");
         delay(5000);
         ESP.restart();
     }
-    Serial.println();
+    Serial.println(F("Poggers!"));
 
     // Wait for the serial port to be avaliable
     // while (!Serial.available()) {
@@ -83,7 +94,7 @@ void setup() {
 
     // Setup OTA
     ArduinoOTA.setHostname("tempmon");
-    ArduinoOTA.setPassword(ota_pass);
+    ArduinoOTA.setPassword(Secrets::ota_pass());
 
     ArduinoOTA.onStart([]() {
         String type;
@@ -122,8 +133,8 @@ void setup() {
 
 unsigned long triggerStart = NULL;
 unsigned long lastSent = NULL;
-unsigned long sendLimit = 10 * 60 * 1000;    // 10 minutes
-unsigned long triggerDelay = 10 * 1000; // 10 seconds
+unsigned long sendLimit = 10 * 60 * 1000; // 10 minutes
+unsigned long triggerDelay = 10 * 1000;   // 10 seconds
 
 void loop() {
     // Handle possible OTA update
