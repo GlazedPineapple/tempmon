@@ -91,9 +91,6 @@ bool Twilio::send_message(
 
 /* Private function to create a Basic Auth field and parameter */
 String Twilio::_get_auth_header(const String &user, const String &password) {
-    Serial.println(user);
-    Serial.println(password);
-
     size_t toencodeLen = user.length() + password.length() + 2;
     char toencode[toencodeLen];
     memset(toencode, 0, toencodeLen);

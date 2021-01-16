@@ -23,28 +23,9 @@ class Secrets {
     static inline const String &ota_pass() {
         return F(OTA_PASS);
     }
-
-    // The twilio number to send from
-    static inline const String &from_number() {
-        return F(FROM_NUM);
-    }
-    // The number to send to
-    static inline const String &to_number() {
-        return F(TO_NUM);
-    }
-
-    // The twilio account ssid
-    static inline const String &account_sid() {
-        return F(ACCOUNT_SID);
-    }
-
-    // The twilio authentication token
-    static inline const String &auth_token() {
-        return F(AUTH_TOKEN);
-    }
 };
 
-Twilio *twilio = new Twilio(Secrets::account_sid(), Secrets::auth_token());
+Twilio *twilio = new Twilio(ACCOUNT_SID, AUTH_TOKEN);
 ESP8266WebServer twilio_server(8000);
 
 HTTPClient http;
@@ -145,8 +126,8 @@ void loop() {
 
                 String response;
                 bool success = twilio->send_message(
-                    Secrets::to_number(),
-                    Secrets::from_number(),
+                    TO_NUM,
+                    FROM_NUM,
                     message,
                     response,
                     "");
@@ -177,7 +158,7 @@ void handle_message() {
         String arg_name = twilio_server.argName(i);
         String arg = twilio_server.arg(i);
 
-        if (arg_name == "From" && arg == Secrets::to_number()) {
+        if (arg_name == "From" && arg == TO_NUM) {
             auth = true;
         } else if (arg_name == "Body") {
             command = arg;

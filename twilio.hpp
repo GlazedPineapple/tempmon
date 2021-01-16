@@ -8,10 +8,10 @@
 
 class Twilio {
   public:
-    Twilio(
-        const String account_sid_in,
-        const String auth_token_in)
-        : account_sid(account_sid_in), auth_token(auth_token_in) {}
+    Twilio(const char *account_sid_in, const char *auth_token_in) {
+        this->account_sid = account_sid_in;
+        this->auth_token = auth_token_in;
+    }
     // Empty destructor
     ~Twilio() = default;
 
