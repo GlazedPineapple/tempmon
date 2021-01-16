@@ -3,6 +3,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
+#include <ESP8266WebServer.h>
 
 #define ON_THRESHOLD .08
 
@@ -44,42 +45,12 @@ class Secrets {
 };
 
 Twilio *twilio = new Twilio(Secrets::account_sid(), Secrets::auth_token());
+ESP8266WebServer twilio_server(8000);
 
 HTTPClient http;
 WiFiClientSecure client;
 
-// struct Message {
-//     float thermocoupleVoltage;
-//     String toJSON();
-// };
-
-// String Message::toJSON() {
-//     String json;
-
-//     json.concat(F("{\"content\": \"<@272727593881567242> **Pilot light fault**```yml\\nThreshold Voltage: "));
-//     json.concat(String(ON_THRESHOLD * 1000));
-//     json.concat(F(" mv\\nThermocouple Voltage: "));
-//     json.concat(String(this->thermocoupleVoltage * 1000));
-//     json.concat(F(" mv```\"}"));
-
-//     return json;
-// }
-
-// bool sendMessage(Message message) {
-//     // Setup ssl
-//     client.setInsecure();
-//     client.connect(Secrets::webhook_url(), 443);
-
-//     // Connect to webhook
-//     http.begin(client, Secrets::webhook_url());
-//     http.addHeader(F("Content-Type"), F("application/json"));
-//     int httpCode = http.POST(message.toJSON());
-
-//     // Close connection
-//     http.end();
-
-//     return httpCode == 204;
-// }
+void handle_message();
 
 void setup() {
     pinMode(A0, INPUT_PULLDOWN_16);
@@ -115,6 +86,9 @@ void setup() {
     // Print wifi info
     WiFi.printDiag(Serial);
 
+    twilio_server.on("/message", handle_message);
+    twilio_server.begin();
+
     Serial.println("Ready");
 }
 
@@ -124,6 +98,8 @@ unsigned long sendLimit = 10 * 60 * 1000; // 10 minutes
 unsigned long triggerDelay = 10 * 1000;   // 10 seconds
 
 void loop() {
+    twilio_server.handleClient();
+
     int raw_adc = analogRead(A0);
 
     double thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3;
@@ -189,4 +165,24 @@ void loop() {
     } else {
         triggerStart = NULL;
     }
+}
+
+void handle_message() {
+    Serial.println("Incoming connection!");
+    
+    bool auth = false;
+    String command = "";
+
+    for(int i = 0; i < twilio_server.args(); i++) {
+        String arg_name = twilio_server.argName(i);
+        String arg = twilio_server.arg(i);
+
+        if (arg_name == "From" && arg == Secrets::to_number()) {
+            auth = true;
+        } else if (arg_name == "Body") {
+            command = arg;
+        }
+    }
+
+    String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
 }
