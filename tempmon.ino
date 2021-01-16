@@ -1,29 +1,11 @@
 #include "secrets.hpp"
 #include "twilio.hpp"
 #include <ESP8266HTTPClient.h>
+#include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
-#include <ESP8266WebServer.h>
 
 #define ON_THRESHOLD .08
-
-class Secrets {
-  public:
-    // The ssid to connect to
-    static inline const String &ssid() {
-        return F(STA_SSID);
-    }
-
-    // The password of the wifi ssid
-    static inline const String &password() {
-        return F(STA_PSK);
-    }
-
-    // The OTA password to use when pusing OTA updates
-    static inline const String &ota_pass() {
-        return F(OTA_PASS);
-    }
-};
 
 Twilio *twilio = new Twilio(ACCOUNT_SID, AUTH_TOKEN);
 ESP8266WebServer twilio_server(8000);
@@ -50,7 +32,7 @@ void setup() {
     Serial.println();
 
     // Connect to the wifi
-    WiFi.begin(Secrets::ssid(), Secrets::password());
+    WiFi.begin(STA_SSID, STA_PSK);
 
     Serial.print(F("Connecting..."));
     while (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -77,9 +59,20 @@ unsigned long triggerStart = NULL;
 unsigned long lastSent = NULL;
 unsigned long sendLimit = 10 * 60 * 1000; // 10 minutes
 unsigned long triggerDelay = 10 * 1000;   // 10 seconds
+unsigned long delayUntil = NULL;
 
 void loop() {
     twilio_server.handleClient();
+
+    unsigned long currentMillis = millis();
+
+    if (delayUntil != NULL) {
+        if (delayUntil - currentMillis > 0) {
+            delayUntil = NULL;
+        } else {
+            return;
+        }
+    }
 
     int raw_adc = analogRead(A0);
 
@@ -109,7 +102,6 @@ void loop() {
         digitalWrite(D8, HIGH); // Red
     }
 
-    unsigned long currentMillis = millis();
     if (thermocoupleVoltage < ON_THRESHOLD) {
         if (triggerStart == NULL)
             triggerStart = currentMillis;
@@ -150,11 +142,11 @@ void loop() {
 
 void handle_message() {
     Serial.println("Incoming connection!");
-    
-    bool auth = false;
-    String command = "";
 
-    for(int i = 0; i < twilio_server.args(); i++) {
+    bool auth = false;
+    String command = NULL;
+
+    for (int i = 0; i < twilio_server.args(); i++) {
         String arg_name = twilio_server.argName(i);
         String arg = twilio_server.arg(i);
 
@@ -166,4 +158,28 @@ void handle_message() {
     }
 
     String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+    if (command != NULL && auth) {
+        switch (command) {
+            case "ack":
+                delayUntil = millis() + (30 * 60 * 1000);
+                response += "<Response><Message>"
+                            "Delaying for 30 minutes"
+                            "</Message></Response>";
+                break;
+            case "volt":
+                response += "Threshold Voltage: ";
+                response += String(ON_THRESHOLD * 1000);
+                response    += " mv\nThermocouple Voltage: ";
+                response += String(thermocoupleVoltage * 1000);
+                response += " mv";
+                break;
+            default:
+                response += "<Response><Message>"
+                            "Avaliable Commands:"
+                            "ack - Acknowledge the warning and suppress messages for 30 minutes"
+                            "volt - Get the current voltage of the thermocouple"
+                            "</Message></Response>";
+                break;
+        }
+    }
 }
