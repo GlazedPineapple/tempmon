@@ -47,6 +47,9 @@ void setup() {
     // }
 
     // Print wifi info
+    Serial.println("WiFi connected");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
     WiFi.printDiag(Serial);
 
     twilio_server.on("/message", handle_message);
@@ -61,22 +64,23 @@ unsigned long sendLimit = 10 * 60 * 1000; // 10 minutes
 unsigned long triggerDelay = 10 * 1000;   // 10 seconds
 unsigned long delayUntil = NULL;
 
+double thermocoupleVoltage = 0;
+
+unsigned long preMillis = 0;
+
 void loop() {
     twilio_server.handleClient();
 
     unsigned long currentMillis = millis();
 
-    if (delayUntil != NULL) {
-        if (delayUntil - currentMillis > 0) {
-            delayUntil = NULL;
-        } else {
-            return;
-        }
-    }
+    if (currentMillis - preMillis < 100)
+        return;
+    else
+        preMillis = currentMillis;
 
     int raw_adc = analogRead(A0);
 
-    double thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3;
+    thermocoupleVoltage = ((double)raw_adc / 1024.0) * 3.3;
 
     // Serial.println(String(thermocoupleVoltage * 1000) + F(" mv"));
 
@@ -100,6 +104,14 @@ void loop() {
         digitalWrite(D6, LOW);
         digitalWrite(D7, LOW);
         digitalWrite(D8, HIGH); // Red
+    }
+
+    if (delayUntil != NULL) {
+        if (currentMillis >= delayUntil) {
+            delayUntil = NULL;
+        } else {
+            return;
+        }
     }
 
     if (thermocoupleVoltage < ON_THRESHOLD) {
@@ -144,7 +156,7 @@ void handle_message() {
     Serial.println("Incoming connection!");
 
     bool auth = false;
-    String command = NULL;
+    String command = String();
 
     for (int i = 0; i < twilio_server.args(); i++) {
         String arg_name = twilio_server.argName(i);
@@ -157,29 +169,34 @@ void handle_message() {
         }
     }
 
+    Serial.println(command);
+    Serial.println(auth);
+
     String response = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
-    if (command != NULL && auth) {
-        switch (command) {
-            case "ack":
-                delayUntil = millis() + (30 * 60 * 1000);
-                response += "<Response><Message>"
-                            "Delaying for 30 minutes"
-                            "</Message></Response>";
-                break;
-            case "volt":
-                response += "Threshold Voltage: ";
-                response += String(ON_THRESHOLD * 1000);
-                response    += " mv\nThermocouple Voltage: ";
-                response += String(thermocoupleVoltage * 1000);
-                response += " mv";
-                break;
-            default:
-                response += "<Response><Message>"
-                            "Avaliable Commands:"
-                            "ack - Acknowledge the warning and suppress messages for 30 minutes"
-                            "volt - Get the current voltage of the thermocouple"
-                            "</Message></Response>";
-                break;
+    if (command.length() > 0 && auth) {
+        if (command.equalsIgnoreCase("ack")) {
+            delayUntil = millis() + (30 * 60 * 1000);
+            response += "<Response><Message>"
+                        "Delaying for 30 minutes"
+                        "</Message></Response>";
+        } else if (command.equalsIgnoreCase("volt")) {
+            response += "<Response><Message>";
+            response += "Threshold Voltage: ";
+            response += String(ON_THRESHOLD * 1000);
+            response += " mv\nThermocouple Voltage: ";
+            response += String(thermocoupleVoltage * 1000);
+            response += " mv";
+            response += "</Message></Response>";
+        } else {
+            response += "<Response><Message>"
+                        "Avaliable Commands:\n"
+                        "ack - Acknowledge the warning and suppress messages for 30 minutes\n"
+                        "volt - Get the current voltage of the thermocouple"
+                        "</Message></Response>";
         }
     }
+
+    Serial.println(response);
+
+    twilio_server.send(200, "application/xml", response);
 }

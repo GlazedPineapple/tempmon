@@ -2,7 +2,8 @@
     "files.associations": {
         "random": "cpp",
         "system_error": "cpp",
-        "complex": "cpp"
+        "complex": "cpp",
+        "ios": "cpp"
     },
     "cSpell.words": [
         "Homeof"
